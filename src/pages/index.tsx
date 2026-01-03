@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Outfit } from "next/font/google";
+import { api, type AuctionItem, type Category } from "@/lib/api";
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -9,143 +10,7 @@ const outfit = Outfit({
   weight: ["300", "400", "500", "600", "700"],
 });
 
-// Dummy auction data
-const auctionItems = [
-  {
-    id: 1,
-    name: "Rolex Submariner",
-    category: "Watches",
-    image: "https://images.unsplash.com/photo-1523170335258-f5ed11844a49?w=400&h=400&fit=crop",
-    currentBid: 125000000,
-    previousBid: 120000000,
-    totalBids: 47,
-    timeLeft: "2h 15m",
-    isHot: true,
-  },
-  {
-    id: 2,
-    name: "Vintage Leica M3",
-    category: "Camera",
-    image: "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&h=400&fit=crop",
-    currentBid: 45000000,
-    previousBid: 48000000,
-    totalBids: 23,
-    timeLeft: "5h 42m",
-    isHot: false,
-  },
-  {
-    id: 3,
-    name: "MacBook Pro M3 Max",
-    category: "Electronics",
-    image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400&h=400&fit=crop",
-    currentBid: 38500000,
-    previousBid: 35000000,
-    totalBids: 89,
-    timeLeft: "1h 08m",
-    isHot: true,
-  },
-  {
-    id: 4,
-    name: "Hermès Birkin 30",
-    category: "Fashion",
-    image: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=400&h=400&fit=crop",
-    currentBid: 285000000,
-    previousBid: 280000000,
-    totalBids: 156,
-    timeLeft: "12h 30m",
-    isHot: true,
-  },
-  {
-    id: 5,
-    name: "Antique Persian Rug",
-    category: "Art",
-    image: "https://images.unsplash.com/photo-1600166898405-da9535204843?w=400&h=400&fit=crop",
-    currentBid: 67000000,
-    previousBid: 70000000,
-    totalBids: 12,
-    timeLeft: "3d 8h",
-    isHot: false,
-  },
-  {
-    id: 6,
-    name: "Gibson Les Paul '59",
-    category: "Music",
-    image: "https://images.unsplash.com/photo-1564186763535-ebb21ef5277f?w=400&h=400&fit=crop",
-    currentBid: 890000000,
-    previousBid: 850000000,
-    totalBids: 34,
-    timeLeft: "6h 22m",
-    isHot: true,
-  },
-  {
-    id: 7,
-    name: "Air Jordan 1 Chicago",
-    category: "Fashion",
-    image: "https://images.unsplash.com/photo-1556906781-9a412961c28c?w=400&h=400&fit=crop",
-    currentBid: 28000000,
-    previousBid: 25000000,
-    totalBids: 201,
-    timeLeft: "45m",
-    isHot: true,
-  },
-  {
-    id: 8,
-    name: "Patek Philippe Nautilus",
-    category: "Watches",
-    image: "https://images.unsplash.com/photo-1587836374828-4dbafa94cf0e?w=400&h=400&fit=crop",
-    currentBid: 1250000000,
-    previousBid: 1200000000,
-    totalBids: 18,
-    timeLeft: "1d 4h",
-    isHot: true,
-  },
-  {
-    id: 9,
-    name: "Vintage Wine Collection",
-    category: "Collectibles",
-    image: "https://images.unsplash.com/photo-1474722883778-792e7990302f?w=400&h=400&fit=crop",
-    currentBid: 156000000,
-    previousBid: 160000000,
-    totalBids: 8,
-    timeLeft: "2d 12h",
-    isHot: false,
-  },
-  {
-    id: 10,
-    name: "Diamond Tennis Bracelet",
-    category: "Jewelry",
-    image: "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=400&h=400&fit=crop",
-    currentBid: 420000000,
-    previousBid: 400000000,
-    totalBids: 67,
-    timeLeft: "8h 15m",
-    isHot: true,
-  },
-  {
-    id: 11,
-    name: "Banksy Original Print",
-    category: "Art",
-    image: "https://images.unsplash.com/photo-1561214115-f2f134cc4912?w=400&h=400&fit=crop",
-    currentBid: 750000000,
-    previousBid: 720000000,
-    totalBids: 42,
-    timeLeft: "4h 50m",
-    isHot: true,
-  },
-  {
-    id: 12,
-    name: "Sony A7R V",
-    category: "Camera",
-    image: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=400&h=400&fit=crop",
-    currentBid: 52000000,
-    previousBid: 55000000,
-    totalBids: 31,
-    timeLeft: "16h 40m",
-    isHot: false,
-  },
-];
-
-const categories = ["All", "Watches", "Fashion", "Electronics", "Art", "Camera", "Music", "Jewelry", "Collectibles"];
+const defaultCategories = ["All"];
 
 function formatCurrency(amount: number): string {
   if (amount >= 1000000000) {
@@ -158,6 +23,7 @@ function formatCurrency(amount: number): string {
 }
 
 function getPriceChange(current: number, previous: number): { percentage: string; isUp: boolean } {
+  if (previous === 0) return { percentage: "+0%", isUp: true };
   const change = ((current - previous) / previous) * 100;
   return {
     percentage: `${change > 0 ? "+" : ""}${change.toFixed(1)}%`,
@@ -168,10 +34,128 @@ function getPriceChange(current: number, previous: number): { percentage: string
 export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [auctionItems, setAuctionItems] = useState<AuctionItem[]>([]);
+  const [categories, setCategories] = useState<string[]>(defaultCategories);
+  const [loading, setLoading] = useState(true);
+  const [totalItems, setTotalItems] = useState(0);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
 
+  // Store fetched category objects for ID lookup
+  const [categoryObjects, setCategoryObjects] = useState<Category[]>([]);
+
+  // Fetch categories on mount
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await api.getCategories();
+        // Handle unwrapped response - could be array directly or { data: [...] }
+        const cats = Array.isArray(response) ? response : (response as unknown as { data: Category[] })?.data || [];
+        
+        if (cats && cats.length > 0) {
+          setCategoryObjects(cats);
+          const categoryNames = ["All", ...cats.map((cat: Category) => cat.category_name)];
+          setCategories(categoryNames);
+        }
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+        // Keep default categories on error
+      }
+    };
+
+    fetchCategories();
+  }, []);
+
+  // Fetch auction items
+  useEffect(() => {
+    const fetchAuctions = async () => {
+      setLoading(true);
+      try {
+        // Get the actual category ID from the fetched category objects
+        let categoryId: number | undefined;
+        if (selectedCategory !== "All") {
+          const foundCat = categoryObjects.find(cat => cat.category_name === selectedCategory);
+          categoryId = foundCat?.id;
+        }
+
+        const response = await api.getAuctions({
+          page: 1,
+          limit: 20,
+          category_id: categoryId,
+          search: searchQuery || undefined,
+        });
+
+        // Handle both cases: response could be array (unwrapped) or { data: [], meta: {} }
+        const items = Array.isArray(response) ? response : (response?.data || []);
+        const meta = Array.isArray(response) ? null : response?.meta;
+
+        if (items && items.length > 0) {
+          setAuctionItems(items);
+          setTotalItems(meta?.total || items.length);
+          setHasMore(items.length < (meta?.total || 0));
+        } else {
+          setAuctionItems([]);
+          setTotalItems(0);
+          setHasMore(false);
+        }
+      } catch (error) {
+        console.error("Error fetching auctions:", error);
+        setAuctionItems([]);
+        setTotalItems(0);
+        setHasMore(false);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const debounce = setTimeout(() => {
+      fetchAuctions();
+    }, 300);
+
+    return () => clearTimeout(debounce);
+  }, [selectedCategory, searchQuery, categoryObjects]);
+
+  // Load more items
+  const loadMore = async () => {
+    if (!hasMore || loading) return;
+
+    try {
+      let categoryId: number | undefined;
+      if (selectedCategory !== "All") {
+        const foundCat = categoryObjects.find(cat => cat.category_name === selectedCategory);
+        categoryId = foundCat?.id;
+      }
+
+      const response = await api.getAuctions({
+        page: page + 1,
+        limit: 20,
+        category_id: categoryId,
+        search: searchQuery || undefined,
+      });
+
+      // Handle both cases: response could be array (unwrapped) or { data: [], meta: {} }
+      const items = Array.isArray(response) ? response : (response?.data || []);
+      const meta = Array.isArray(response) ? null : response?.meta;
+
+      if (items && items.length > 0) {
+        setAuctionItems(prev => [...prev, ...items]);
+        setPage(page + 1);
+        setHasMore(auctionItems.length + items.length < (meta?.total || 0));
+      }
+    } catch (error) {
+      console.error("Error loading more:", error);
+      setHasMore(false);
+    }
+  };
+
+  // Filter items locally for client-side filtering (when API doesn't support it)
   const filteredItems = auctionItems.filter((item) => {
-    const matchesCategory = selectedCategory === "All" || item.category === selectedCategory;
-    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
+    // Handle category being either a string or an object with category_name
+    const itemCategoryName = typeof item.category === 'object' && item.category !== null
+      ? (item.category as { category_name?: string }).category_name
+      : item.category;
+    const matchesCategory = selectedCategory === "All" || itemCategoryName === selectedCategory;
+    const matchesSearch = (item.name || '').toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 
@@ -204,7 +188,7 @@ export default function Home() {
         {/* Stats Bar */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
           {[
-            { label: "Active Auctions", value: "1,247", icon: "🔥" },
+            { label: "Active Auctions", value: totalItems > 0 ? totalItems.toLocaleString() : "1,247", icon: "🔥" },
             { label: "Total Volume", value: "Rp 89.2B", icon: "💎" },
             { label: "Active Bidders", value: "12,841", icon: "👥" },
             { label: "Avg. Bid Increase", value: "+8.4%", icon: "📈" },
@@ -284,109 +268,125 @@ export default function Home() {
           ))}
         </div>
 
+        {/* Loading State */}
+        {loading && (
+          <div className="flex justify-center py-20">
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-12 h-12 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
+              <p className="text-zinc-400">Loading auctions...</p>
+            </div>
+          </div>
+        )}
+
         {/* Auction Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-          {filteredItems.map((item, index) => {
-            const priceChange = getPriceChange(item.currentBid, item.previousBid);
-            return (
-              <Link
-                href={`/${item.id}`}
-                key={item.id}
-                className="group relative bg-zinc-900/40 backdrop-blur-sm border border-zinc-800/50 rounded-2xl overflow-hidden hover:border-zinc-700/50 hover:shadow-2xl hover:shadow-emerald-500/5 transition-all duration-500 hover:-translate-y-1 cursor-pointer"
-                style={{ animationDelay: `${index * 50}ms` }}
-              >
-                {/* Hot Badge */}
-                {item.isHot && (
-                  <div className="absolute top-4 left-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-linear-to-r from-orange-500 to-red-500 text-white text-xs font-semibold shadow-lg">
-                    <span className="text-[10px]">🔥</span> HOT
-                  </div>
-                )}
+        {!loading && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            {filteredItems.map((item, index) => {
+              const priceChange = getPriceChange(item.current_bid, item.previous_bid);
+              return (
+                <Link
+                  href={`/${item.id}`}
+                  key={item.id}
+                  className="group relative bg-zinc-900/40 backdrop-blur-sm border border-zinc-800/50 rounded-2xl overflow-hidden hover:border-zinc-700/50 hover:shadow-2xl hover:shadow-emerald-500/5 transition-all duration-500 hover:-translate-y-1 cursor-pointer"
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
+                  {/* Hot Badge */}
+                  {item.is_hot && (
+                    <div className="absolute top-4 left-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-linear-to-r from-orange-500 to-red-500 text-white text-xs font-semibold shadow-lg">
+                      <span className="text-[10px]">🔥</span> HOT
+                    </div>
+                  )}
 
-                {/* Time Badge */}
-                <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-md text-white text-xs font-medium">
-                  <svg className="w-3.5 h-3.5 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path
-                      fillRule="evenodd"
-                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
-                      clipRule="evenodd"
+                  {/* Time Badge */}
+                  <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-md text-white text-xs font-medium">
+                    <svg className="w-3.5 h-3.5 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    {item.time_left}
+                  </div>
+
+                  {/* Image Container */}
+                  <div className="relative h-56 overflow-hidden">
+                    <div className="absolute inset-0 bg-linear-to-t from-zinc-900 via-transparent to-transparent z-10" />
+                    <Image
+                      src={item.image || item.images?.[0] || "https://via.placeholder.com/400"}
+                      alt={item.name}
+                      fill
+                      className="object-cover group-hover:scale-110 transition-transform duration-700"
+                      unoptimized
                     />
-                  </svg>
-                  {item.timeLeft}
-                </div>
+                  </div>
 
-                {/* Image Container */}
-                <div className="relative h-56 overflow-hidden">
-                  <div className="absolute inset-0 bg-linear-to-t from-zinc-900 via-transparent to-transparent z-10" />
-            <Image
-                    src={item.image}
-                    alt={item.name}
-                    fill
-                    className="object-cover group-hover:scale-110 transition-transform duration-700"
-                    unoptimized
-                  />
-                </div>
-
-                {/* Content */}
-                <div className="p-5">
-                  {/* Category */}
-                  <div className="text-xs text-zinc-500 uppercase tracking-wider mb-2">{item.category}</div>
-
-                  {/* Name */}
-                  <h3 className="text-lg font-semibold text-white mb-4 group-hover:text-emerald-400 transition-colors">
-                    {item.name}
-                  </h3>
-
-                  {/* Price Section */}
-                  <div className="flex items-end justify-between mb-4">
-                    <div>
-                      <div className="text-xs text-zinc-500 mb-1">Current Bid</div>
-                      <div className="text-xl font-bold text-white">{formatCurrency(item.currentBid)}</div>
+                  {/* Content */}
+                  <div className="p-5">
+                    {/* Category */}
+                    <div className="text-xs text-zinc-500 uppercase tracking-wider mb-2">
+                      {typeof item.category === 'object' && item.category !== null 
+                        ? (item.category as { category_name?: string }).category_name || 'Unknown'
+                        : item.category || 'Unknown'}
                     </div>
-                    <div
-                      className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-sm font-semibold ${
-                        priceChange.isUp ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
-                      }`}
-                    >
-                      <svg
-                        className={`w-3.5 h-3.5 ${priceChange.isUp ? "" : "rotate-180"}`}
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
+
+                    {/* Name */}
+                    <h3 className="text-lg font-semibold text-white mb-4 group-hover:text-emerald-400 transition-colors">
+                      {item.name}
+                    </h3>
+
+                    {/* Price Section */}
+                    <div className="flex items-end justify-between mb-4">
+                      <div>
+                        <div className="text-xs text-zinc-500 mb-1">Current Bid</div>
+                        <div className="text-xl font-bold text-white">{formatCurrency(item.current_bid)}</div>
+                      </div>
+                      <div
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-sm font-semibold ${
+                          priceChange.isUp ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+                        }`}
                       >
-                        <path
-                          fillRule="evenodd"
-                          d="M5.293 7.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L6.707 7.707a1 1 0 01-1.414 0z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                      {priceChange.percentage}
+                        <svg
+                          className={`w-3.5 h-3.5 ${priceChange.isUp ? "" : "rotate-180"}`}
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M5.293 7.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L6.707 7.707a1 1 0 01-1.414 0z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        {priceChange.percentage}
+                      </div>
+                    </div>
+
+                    {/* Bid Stats & CTA */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-zinc-500 text-sm">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                        </svg>
+                        {item.total_bids} bids
+                      </div>
+                      <button className="px-4 py-2 bg-linear-to-r from-emerald-500 to-cyan-500 text-white text-sm font-semibold rounded-lg hover:shadow-lg hover:shadow-emerald-500/25 transition-all duration-300 active:scale-95">
+                        Place Bid
+                      </button>
                     </div>
                   </div>
 
-                  {/* Bid Stats & CTA */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-zinc-500 text-sm">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-                      </svg>
-                      {item.totalBids} bids
-                    </div>
-                    <button className="px-4 py-2 bg-linear-to-r from-emerald-500 to-cyan-500 text-white text-sm font-semibold rounded-lg hover:shadow-lg hover:shadow-emerald-500/25 transition-all duration-300 active:scale-95">
-                      Place Bid
-                    </button>
+                  {/* Hover Glow Effect */}
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
+                    <div className="absolute inset-x-0 bottom-0 h-px bg-linear-to-r from-transparent via-emerald-500 to-transparent" />
                   </div>
-                </div>
-
-                {/* Hover Glow Effect */}
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
-                  <div className="absolute inset-x-0 bottom-0 h-px bg-linear-to-r from-transparent via-emerald-500 to-transparent" />
-                </div>
-              </Link>
-            );
-          })}
-        </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
 
         {/* Empty State */}
-        {filteredItems.length === 0 && (
+        {!loading && filteredItems.length === 0 && (
           <div className="text-center py-20">
             <div className="text-6xl mb-4">🔍</div>
             <h3 className="text-xl font-semibold text-white mb-2">No auctions found</h3>
@@ -395,9 +395,12 @@ export default function Home() {
         )}
 
         {/* Load More */}
-        {filteredItems.length > 0 && (
+        {!loading && filteredItems.length > 0 && hasMore && (
           <div className="text-center mt-12">
-            <button className="px-8 py-3.5 bg-zinc-900/50 border border-zinc-800/50 text-white font-medium rounded-xl hover:border-zinc-700 hover:bg-zinc-800/50 transition-all duration-300">
+            <button 
+              onClick={loadMore}
+              className="px-8 py-3.5 bg-zinc-900/50 border border-zinc-800/50 text-white font-medium rounded-xl hover:border-zinc-700 hover:bg-zinc-800/50 transition-all duration-300"
+            >
               Load More Auctions
             </button>
           </div>

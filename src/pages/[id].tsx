@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/router";
 import Image from "next/image";
 import Link from "next/link";
 import { Outfit } from "next/font/google";
 import { createChart, LineSeries, LineData, Time } from "lightweight-charts";
+import { api } from "@/lib/api";
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -11,153 +12,42 @@ const outfit = Outfit({
   weight: ["300", "400", "500", "600", "700"],
 });
 
-// Dummy auction items (same as landing page)
-const auctionItems = [
-  {
-    id: 1,
-    name: "Rolex Submariner",
-    category: "Watches",
-    image: "https://images.unsplash.com/photo-1523170335258-f5ed11844a49?w=800&h=800&fit=crop",
-    currentBid: 125000000,
-    startingBid: 80000000,
-    totalBids: 47,
-    timeLeft: "2h 15m",
-    description: "Authentic Rolex Submariner Date 116610LN with black dial and ceramic bezel. Complete with box and papers. Excellent condition with minor signs of wear.",
-    seller: "LuxuryTimepieces",
-  },
-  {
-    id: 2,
-    name: "Vintage Leica M3",
-    category: "Camera",
-    image: "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=800&h=800&fit=crop",
-    currentBid: 45000000,
-    startingBid: 30000000,
-    totalBids: 23,
-    timeLeft: "5h 42m",
-    description: "Rare Leica M3 double stroke from 1955. Recently CLA'd and in excellent working condition. Comes with original leather case.",
-    seller: "VintageCamera",
-  },
-  {
-    id: 3,
-    name: "MacBook Pro M3 Max",
-    category: "Electronics",
-    image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&h=800&fit=crop",
-    currentBid: 38500000,
-    startingBid: 25000000,
-    totalBids: 89,
-    timeLeft: "1h 08m",
-    description: "Apple MacBook Pro 16\" with M3 Max chip, 64GB RAM, 1TB SSD. Like new condition, only 3 months old with AppleCare+ until 2027.",
-    seller: "TechDeals",
-  },
-  {
-    id: 4,
-    name: "Hermès Birkin 30",
-    category: "Fashion",
-    image: "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=800&h=800&fit=crop",
-    currentBid: 285000000,
-    startingBid: 200000000,
-    totalBids: 156,
-    timeLeft: "12h 30m",
-    description: "Authentic Hermès Birkin 30 in Togo leather with gold hardware. Pristine condition with original box, dustbag, and receipt.",
-    seller: "LuxuryBags",
-  },
-  {
-    id: 5,
-    name: "Antique Persian Rug",
-    category: "Art",
-    image: "https://images.unsplash.com/photo-1600166898405-da9535204843?w=800&h=800&fit=crop",
-    currentBid: 67000000,
-    startingBid: 45000000,
-    totalBids: 12,
-    timeLeft: "3d 8h",
-    description: "Exquisite handwoven Persian rug from the 19th century. Intricate floral patterns with natural dyes. Museum quality piece.",
-    seller: "AntiqueArts",
-  },
-  {
-    id: 6,
-    name: "Gibson Les Paul '59",
-    category: "Music",
-    image: "https://images.unsplash.com/photo-1564186763535-ebb21ef5277f?w=800&h=800&fit=crop",
-    currentBid: 890000000,
-    startingBid: 700000000,
-    totalBids: 34,
-    timeLeft: "6h 22m",
-    description: "Original 1959 Gibson Les Paul Standard in Cherry Sunburst. All original parts and electronics. One of the holy grails of electric guitars.",
-    seller: "VintageGuitars",
-  },
-  {
-    id: 7,
-    name: "Air Jordan 1 Chicago",
-    category: "Fashion",
-    image: "https://images.unsplash.com/photo-1556906781-9a412961c28c?w=800&h=800&fit=crop",
-    currentBid: 28000000,
-    startingBid: 18000000,
-    totalBids: 201,
-    timeLeft: "45m",
-    description: "Deadstock 1985 Air Jordan 1 Chicago in original box. Size US 10. Authenticated by StockX.",
-    seller: "SneakerVault",
-  },
-  {
-    id: 8,
-    name: "Patek Philippe Nautilus",
-    category: "Watches",
-    image: "https://images.unsplash.com/photo-1587836374828-4dbafa94cf0e?w=800&h=800&fit=crop",
-    currentBid: 1250000000,
-    startingBid: 950000000,
-    totalBids: 18,
-    timeLeft: "1d 4h",
-    description: "Patek Philippe Nautilus 5711/1A-010 Blue Dial. Full set with box and papers. 2020 production, discontinued model.",
-    seller: "EliteWatches",
-  },
-  {
-    id: 9,
-    name: "Vintage Wine Collection",
-    category: "Collectibles",
-    image: "https://images.unsplash.com/photo-1474722883778-792e7990302f?w=800&h=800&fit=crop",
-    currentBid: 156000000,
-    startingBid: 120000000,
-    totalBids: 8,
-    timeLeft: "2d 12h",
-    description: "Collection of 12 bottles of rare vintage wines including Château Margaux 1990, Romanée-Conti 1985, and Pétrus 1982.",
-    seller: "FineCellars",
-  },
-  {
-    id: 10,
-    name: "Diamond Tennis Bracelet",
-    category: "Jewelry",
-    image: "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=800&h=800&fit=crop",
-    currentBid: 420000000,
-    startingBid: 300000000,
-    totalBids: 67,
-    timeLeft: "8h 15m",
-    description: "18K White Gold tennis bracelet featuring 15 carats of VS1 clarity diamonds. GIA certified. Stunning brilliance.",
-    seller: "DiamondHouse",
-  },
-  {
-    id: 11,
-    name: "Banksy Original Print",
-    category: "Art",
-    image: "https://images.unsplash.com/photo-1561214115-f2f134cc4912?w=800&h=800&fit=crop",
-    currentBid: 750000000,
-    startingBid: 500000000,
-    totalBids: 42,
-    timeLeft: "4h 50m",
-    description: "Authenticated Banksy 'Girl with Balloon' signed print. Limited edition 150/600. Pest Control certified.",
-    seller: "ContemporaryArt",
-  },
-  {
-    id: 12,
-    name: "Sony A7R V",
-    category: "Camera",
-    image: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=800&h=800&fit=crop",
-    currentBid: 52000000,
-    startingBid: 40000000,
-    totalBids: 31,
-    timeLeft: "16h 40m",
-    description: "Sony Alpha A7R V full-frame mirrorless camera. Like new condition with only 500 shutter count. Includes extra battery and 128GB CFexpress card.",
-    seller: "ProCamera",
-  },
-];
+// Interface for auction item from API
+interface AuctionItemDetail {
+  id: number;
+  lot_code: string;
+  item_name: string;
+  name?: string;
+  category?: string;
+  category_name?: string;
+  image?: string;
+  images?: Array<{ image_url: string; image_type: string }>;
+  current_bid?: number;
+  current_highest_bid?: number;
+  starting_price: number;
+  limit_price?: number;
+  deposit_amount?: number;
+  increment_amount?: number;
+  total_bids?: number;
+  bid_count?: number;
+  time_left?: string;
+  description?: string;
+  detailed_description?: string;
+  seller?: { seller_name: string };
+  seller_name?: string;
+  organizer?: { organizer_name: string };
+  status?: string;
+  auction_method?: string;
+  item_type?: string;
+  sub_type?: string;
+  schedule?: {
+    auction_start: string;
+    auction_end: string;
+    registration_start?: string;
+    registration_end?: string;
+    deposit_deadline?: string;
+  };
+}
 
 // User colors for the stacked area chart
 const userColors = [
@@ -299,19 +189,88 @@ export default function AuctionDetail() {
   const chartRef = useRef<ReturnType<typeof createChart> | null>(null);
   const seriesRefs = useRef<ReturnType<ReturnType<typeof createChart>["addSeries"]>[]>([]);
   
-  const item = auctionItems.find((a) => a.id === Number(id)) || auctionItems[0];
+  // State for fetched item data
+  const [item, setItem] = useState<AuctionItemDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
-  // Initialize data with useMemo to avoid setState in effect
+  // Fetch auction item from API
+  useEffect(() => {
+    const fetchItem = async () => {
+      if (!id) return;
+      
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const response = await api.getAuctionItem(Number(id));
+        setItem(response as unknown as AuctionItemDetail);
+      } catch (err) {
+        console.error("Error fetching auction item:", err);
+        setError("Item tidak ditemukan");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchItem();
+  }, [id]);
+  
+  // Get item values with fallbacks
+  const itemName = item?.item_name || item?.name || "Loading...";
+  // Handle category being either a string or an object with category_name
+  const itemCategory = item?.category_name || 
+    (typeof item?.category === 'object' && item?.category !== null 
+      ? (item.category as { category_name?: string }).category_name 
+      : item?.category) || "Unknown";
+  const itemImage = item?.images?.[0]?.image_url || item?.image || "https://via.placeholder.com/800";
+  const itemCurrentBid = item?.current_highest_bid || item?.current_bid || item?.starting_price || 0;
+  const itemStartingBid = item?.starting_price || 0;
+  const itemTotalBids = item?.bid_count || item?.total_bids || 0;
+  const itemDescription = item?.detailed_description || item?.description || "";
+  const itemSeller = item?.seller?.seller_name || item?.seller_name || "Unknown Seller";
+  
+  // Calculate time left from schedule
+  const getTimeLeft = useCallback(() => {
+    if (item?.schedule?.auction_end) {
+      const endDate = new Date(item.schedule.auction_end);
+      const now = new Date();
+      const diff = endDate.getTime() - now.getTime();
+      
+      if (diff <= 0) return "Ended";
+      
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      
+      if (days > 0) return `${days}d ${hours}h`;
+      if (hours > 0) return `${hours}h ${minutes}m`;
+      return `${minutes}m`;
+    }
+    return item?.time_left || "N/A";
+  }, [item]);
+  
+  const itemTimeLeft = getTimeLeft();
+  
+  // Initialize data with useMemo to avoid setState in effect - using itemCurrentBid and itemStartingBid
   const initialHistory = useMemo(() => 
-    generateBidHistory(item.startingBid, item.currentBid, item.totalBids),
-    [item.startingBid, item.currentBid, item.totalBids]
+    generateBidHistory(itemStartingBid || 100000000, itemCurrentBid || 120000000, itemTotalBids || 10),
+    [itemStartingBid, itemCurrentBid, itemTotalBids]
   );
   
   const [_bidHistory, _setBidHistory] = useState<BidHistoryEntry[]>(() => initialHistory);
   const [bidEntries, setBidEntries] = useState<BidEntry[]>(() => generateBidEntries(initialHistory));
-  const [currentPrice, setCurrentPrice] = useState(() => item.currentBid);
-  const [bidAmount, setBidAmount] = useState(() => Math.round(item.currentBid * 1.05).toString());
+  const [currentPrice, setCurrentPrice] = useState(() => itemCurrentBid || 0);
+  const [bidAmount, setBidAmount] = useState(() => Math.round((itemCurrentBid || 100000000) * 1.05).toString());
   const [activeTab, setActiveTab] = useState<"chart" | "history">("chart");
+  
+  // Update currentPrice when item loads
+  useEffect(() => {
+    if (itemCurrentBid > 0) {
+      setCurrentPrice(itemCurrentBid);
+      setBidAmount(Math.round(itemCurrentBid * 1.05).toString());
+    }
+  }, [itemCurrentBid]);
   
   // Initialize chart
   useEffect(() => {
@@ -523,6 +482,37 @@ export default function AuctionDetail() {
     return () => clearInterval(interval);
   }, []); // Empty deps - uses refs for values
   
+  // Loading state
+  if (loading) {
+    return (
+      <div className={`${outfit.className} min-h-screen bg-[#0a0b0d] flex items-center justify-center`}>
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
+          <p className="text-zinc-400">Loading auction details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error || !item) {
+    return (
+      <div className={`${outfit.className} min-h-screen bg-[#0a0b0d] flex items-center justify-center`}>
+        <div className="text-center">
+          <div className="text-6xl mb-4">😕</div>
+          <h2 className="text-2xl font-bold text-white mb-2">{error || "Item tidak ditemukan"}</h2>
+          <p className="text-zinc-400 mb-6">Item lelang yang Anda cari tidak tersedia.</p>
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-500 text-white font-semibold rounded-xl hover:bg-emerald-600 transition-colors"
+          >
+            Kembali ke Beranda
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`${outfit.className} min-h-screen bg-[#0a0b0d]`}>
       {/* Gradient Background Effects */}
@@ -552,8 +542,8 @@ export default function AuctionDetail() {
                 {/* Image */}
                 <div className="relative w-full md:w-48 h-48 rounded-xl overflow-hidden shrink-0">
                   <Image
-                    src={item.image}
-                    alt={item.name}
+                    src={itemImage}
+                    alt={itemName}
                     fill
                     className="object-cover"
                     unoptimized
@@ -562,28 +552,28 @@ export default function AuctionDetail() {
                 
                 {/* Info */}
                 <div className="flex-1">
-                  <div className="text-xs text-zinc-500 uppercase tracking-wider mb-2">{item.category}</div>
-                  <h1 className="text-2xl md:text-3xl font-bold text-white mb-3">{item.name}</h1>
-                  <p className="text-zinc-400 text-sm mb-4 line-clamp-2">{item.description}</p>
+                  <div className="text-xs text-zinc-500 uppercase tracking-wider mb-2">{itemCategory}</div>
+                  <h1 className="text-2xl md:text-3xl font-bold text-white mb-3">{itemName}</h1>
+                  <p className="text-zinc-400 text-sm mb-4 line-clamp-2">{itemDescription}</p>
                   
                   <div className="flex flex-wrap gap-4">
                     <div className="flex items-center gap-2 text-zinc-500 text-sm">
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
                       </svg>
-                      {item.seller}
+                      {itemSeller}
                     </div>
                     <div className="flex items-center gap-2 text-zinc-500 text-sm">
                       <svg className="w-4 h-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
                       </svg>
-                      <span className="text-emerald-400 font-medium">{item.timeLeft} left</span>
+                      <span className="text-emerald-400 font-medium">{itemTimeLeft} left</span>
                     </div>
                     <div className="flex items-center gap-2 text-zinc-500 text-sm">
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                         <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
                       </svg>
-                      {item.totalBids} bids
+                      {itemTotalBids} bids
                     </div>
                   </div>
                 </div>
@@ -705,21 +695,21 @@ export default function AuctionDetail() {
                     clipRule="evenodd"
                   />
                 </svg>
-                +{((currentPrice - item.startingBid) / item.startingBid * 100).toFixed(1)}% from start
+                +{itemStartingBid > 0 ? ((currentPrice - itemStartingBid) / itemStartingBid * 100).toFixed(1) : 0}% from start
               </div>
               
               <div className="mt-6 pt-6 border-t border-zinc-800/50">
                 <div className="flex justify-between text-sm mb-3">
                   <span className="text-zinc-500">Starting Bid</span>
-                  <span className="text-white">{formatCurrency(item.startingBid)}</span>
+                  <span className="text-white">{formatCurrency(itemStartingBid)}</span>
                 </div>
                 <div className="flex justify-between text-sm mb-3">
                   <span className="text-zinc-500">Total Bids</span>
-                  <span className="text-white">{item.totalBids}</span>
+                  <span className="text-white">{itemTotalBids}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-zinc-500">Time Left</span>
-                  <span className="text-emerald-400 font-medium">{item.timeLeft}</span>
+                  <span className="text-emerald-400 font-medium">{itemTimeLeft}</span>
                 </div>
               </div>
             </div>
